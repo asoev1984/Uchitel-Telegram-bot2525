@@ -1,56 +1,65 @@
+
+import os
 import logging
+import asyncio
+
 import gspread
+from fastapi import FastAPI
 from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
 from aiogram.types import Message
 from aiogram.filters import CommandStart
-from aiogram.utils import executor
 from oauth2client.service_account import ServiceAccountCredentials
+from aiohttp import web
+import uvicorn
 
-import asyncio
-import os
+# Настройки логирования
+logging.basicConfig(level=logging.INFO)
 
-TOKEN = os.getenv("BOT_TOKEN")  # Установи переменную окружения BOT_TOKEN в Render
+# Токен Telegram бота из переменной окружения
+TOKEN = os.getenv("BOT_TOKEN")
+bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
+dp = Dispatcher()
 
-# Google Sheets авторизация
+# Подключение к Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)
 client = gspread.authorize(creds)
 
-# Пример: открыть таблицу
 try:
     sheet = client.open("TestSheet").sheet1
 except Exception as e:
     sheet = None
     print("Не удалось открыть таблицу:", e)
 
-# Логирование
-logging.basicConfig(level=logging.INFO)
-
-# Инициализация
-bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
-dp = Dispatcher()
-
-# Стартовая команда
+# Команды
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     await message.answer("Привет! Бот работает.")
 
-# Пример команды для чтения из таблицы
 @dp.message()
 async def echo(message: Message):
     if sheet:
         try:
-            cell_value = sheet.cell(1, 1).value
-            await message.answer(f"Значение в ячейке A1: {cell_value}")
+            value = sheet.cell(1, 1).value
+            await message.answer(f"Значение в A1: {value}")
         except Exception as e:
             await message.answer(f"Ошибка чтения таблицы: {e}")
     else:
         await message.answer("Таблица не подключена.")
 
-# Запуск
+# FastAPI для Render
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"message": "Бот работает"}
+
+# Основной запуск
 async def main():
     await dp.start_polling(bot)
 
 if name == "main":
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
