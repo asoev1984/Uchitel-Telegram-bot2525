@@ -1,6 +1,4 @@
-aiogram==3.3.0
+aiogram==3.2.0
 aiohttp
 gspread
 oauth2client
-fastapi
-uvicorn
